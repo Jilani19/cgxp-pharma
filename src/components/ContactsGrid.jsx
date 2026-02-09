@@ -1,9 +1,8 @@
+import { useEffect, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
-import {
-  ModuleRegistry,
-  ClientSideRowModelModule,
-  InfiniteRowModelModule,
-} from "ag-grid-community";
+
+// ✅ AG Grid module imports MUST be at top
+import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 
 import { contactColumnDefs } from "../grid/contactColumnDefs";
 import { fetchContacts, updateContact } from "../services/contactsApi";
@@ -11,58 +10,59 @@ import { fetchContacts, updateContact } from "../services/contactsApi";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-// ✅ ONLY Community modules
-ModuleRegistry.registerModules([
-  ClientSideRowModelModule,
-  InfiniteRowModelModule,
-]);
+// ✅ Module registration AFTER imports
+ModuleRegistry.registerModules([AllCommunityModule]);
 
 function ContactsGrid() {
-  const pageSize = 20;
+  const [rowData, setRowData] = useState([]);
 
-  const datasource = {
-    getRows: async (params) => {
+  // Load all data once (client-side pagination)
+  useEffect(() => {
+    const loadAllData = async () => {
       try {
-        const page = params.startRow / pageSize + 1;
-
-        const result = await fetchContacts({
-          page,
-          limit: pageSize,
-        });
-
-        // IMPORTANT: total must be 10500
-        params.successCallback(result.data, result.total);
-      } catch (err) {
-        console.error(err);
-        params.failCallback();
+        const result = await fetchContacts();
+        console.log("TOTAL ROWS LOADED:", result.total);
+        setRowData(result.data);
+      } catch (error) {
+        console.error("Failed to load contacts:", error);
       }
-    },
-  };
+    };
 
+    loadAllData();
+  }, []);
+
+  // 🔥 INLINE EDIT HANDLER
   const onCellValueChanged = async (params) => {
     const { data, colDef, newValue, oldValue } = params;
+
+    // No change → no API call
     if (newValue === oldValue) return;
+
+    // Safety checks
+    if (!data || !data._id || !colDef.field) return;
 
     try {
       await updateContact(data._id, colDef.field, newValue);
-    } catch (err) {
-      console.error("Update failed", err);
+      console.log(
+        `Updated ${colDef.field} for ${data._id}:`,
+        newValue
+      );
+    } catch (error) {
+      console.error("Inline update failed:", error);
     }
   };
 
   return (
-    <div className="ag-theme-alpine" style={{ height: 600, width: "100%" }}>
+    <div
+      className="ag-theme-alpine"
+      style={{ height: 600, width: "100%" }}
+    >
       <AgGridReact
-        theme="legacy"
+        rowData={rowData}
         columnDefs={contactColumnDefs}
-        rowModelType="infinite"     // ✅ THIS IS THE KEY
         pagination={true}
-        paginationPageSize={20}
-        paginationPageSizeSelector={[20, 50, 100]}
-        cacheBlockSize={20}
-        onGridReady={(params) => {
-          params.api.setGridOption("datasource", datasource);
-        }}
+        paginationPageSize={10}
+        paginationPageSizeSelector={[10, 20, 50, 100]}
         onCellValueChanged={onCellValueChanged}
         defaultColDef={{
           sortable: true,
