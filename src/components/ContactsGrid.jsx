@@ -2,7 +2,7 @@ import { AgGridReact } from "ag-grid-react";
 import {
   ModuleRegistry,
   ClientSideRowModelModule,
-  ServerSideRowModelModule,
+  InfiniteRowModelModule,
 } from "ag-grid-community";
 
 import { contactColumnDefs } from "../grid/contactColumnDefs";
@@ -11,10 +11,10 @@ import { fetchContacts, updateContact } from "../services/contactsApi";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-// ✅ REQUIRED modules
+// ✅ ONLY Community modules
 ModuleRegistry.registerModules([
   ClientSideRowModelModule,
-  ServerSideRowModelModule,
+  InfiniteRowModelModule,
 ]);
 
 function ContactsGrid() {
@@ -23,21 +23,18 @@ function ContactsGrid() {
   const datasource = {
     getRows: async (params) => {
       try {
-        const page =
-          Math.floor(params.request.startRow / pageSize) + 1;
+        const page = params.startRow / pageSize + 1;
 
         const result = await fetchContacts({
           page,
           limit: pageSize,
         });
 
-        params.success({
-          rowData: result.data,
-          rowCount: result.total,
-        });
+        // IMPORTANT: total must be 10500
+        params.successCallback(result.data, result.total);
       } catch (err) {
         console.error(err);
-        params.fail();
+        params.failCallback();
       }
     },
   };
@@ -58,17 +55,13 @@ function ContactsGrid() {
       <AgGridReact
         theme="legacy"
         columnDefs={contactColumnDefs}
-        rowModelType="serverSide"
-        serverSideStoreType="partial"
+        rowModelType="infinite"     // ✅ THIS IS THE KEY
         pagination={true}
         paginationPageSize={20}
         paginationPageSizeSelector={[20, 50, 100]}
         cacheBlockSize={20}
         onGridReady={(params) => {
-          params.api.setGridOption(
-            "serverSideDatasource",
-            datasource
-          );
+          params.api.setGridOption("datasource", datasource);
         }}
         onCellValueChanged={onCellValueChanged}
         defaultColDef={{
