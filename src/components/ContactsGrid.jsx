@@ -1,6 +1,9 @@
-import { useState } from "react";
 import { AgGridReact } from "ag-grid-react";
-import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
+import {
+  ModuleRegistry,
+  ClientSideRowModelModule,
+  ServerSideRowModelModule,
+} from "ag-grid-community";
 
 import { contactColumnDefs } from "../grid/contactColumnDefs";
 import { fetchContacts, updateContact } from "../services/contactsApi";
@@ -8,10 +11,14 @@ import { fetchContacts, updateContact } from "../services/contactsApi";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-ModuleRegistry.registerModules([AllCommunityModule]);
+// ✅ REQUIRED modules
+ModuleRegistry.registerModules([
+  ClientSideRowModelModule,
+  ServerSideRowModelModule,
+]);
 
 function ContactsGrid() {
-  const [pageSize, setPageSize] = useState(20);
+  const pageSize = 20;
 
   const datasource = {
     getRows: async (params) => {
@@ -29,6 +36,7 @@ function ContactsGrid() {
           rowCount: result.total,
         });
       } catch (err) {
+        console.error(err);
         params.fail();
       }
     },
@@ -47,29 +55,20 @@ function ContactsGrid() {
 
   return (
     <div className="ag-theme-alpine" style={{ height: 600, width: "100%" }}>
-      {/* Page size selector */}
-      <div style={{ marginBottom: 10 }}>
-        Rows per page:&nbsp;
-        <select
-          value={pageSize}
-          onChange={(e) => setPageSize(Number(e.target.value))}
-        >
-          <option value={20}>20</option>
-          <option value={50}>50</option>
-          <option value={100}>100</option>
-        </select>
-      </div>
-
       <AgGridReact
         theme="legacy"
         columnDefs={contactColumnDefs}
         rowModelType="serverSide"
         serverSideStoreType="partial"
         pagination={true}
-        paginationPageSize={pageSize}
-        cacheBlockSize={pageSize}
+        paginationPageSize={20}
+        paginationPageSizeSelector={[20, 50, 100]}
+        cacheBlockSize={20}
         onGridReady={(params) => {
-          params.api.setGridOption("serverSideDatasource", datasource);
+          params.api.setGridOption(
+            "serverSideDatasource",
+            datasource
+          );
         }}
         onCellValueChanged={onCellValueChanged}
         defaultColDef={{
