@@ -1,7 +1,4 @@
-import { useEffect, useState } from "react";
 import { AgGridReact } from "ag-grid-react";
-
-// ✅ AG Grid module imports MUST be at top
 import { ModuleRegistry, AllCommunityModule } from "ag-grid-community";
 
 import { contactColumnDefs } from "../grid/contactColumnDefs";
@@ -10,43 +7,37 @@ import { fetchContacts, updateContact } from "../services/contactsApi";
 import "ag-grid-community/styles/ag-grid.css";
 import "ag-grid-community/styles/ag-theme-alpine.css";
 
-// ✅ Module registration AFTER imports
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 function ContactsGrid() {
-  const [rowData, setRowData] = useState([]);
+  const pageSize = 50;
 
-  // Load all data once (client-side pagination)
-  useEffect(() => {
-    async function loadAllData() {
+  const datasource = {
+    getRows: async (params) => {
       try {
-        const result = await fetchContacts();
-        console.log("TOTAL ROWS LOADED:", result.total);
-        setRowData(result.data);
+        const page = params.startRow / pageSize + 1;
+
+        const result = await fetchContacts({
+          page,
+          limit: pageSize,
+        });
+
+        params.successCallback(result.data, result.total);
       } catch (error) {
-        console.error("Failed to load contacts:", error);
+        console.error("Datasource error:", error);
+        params.failCallback();
       }
-    }
+    },
+  };
 
-    loadAllData();
-  }, []);
-
-  // 🔥 INLINE EDIT HANDLER
   const onCellValueChanged = async (params) => {
     const { data, colDef, newValue, oldValue } = params;
 
-    // No change → no API call
     if (newValue === oldValue) return;
-
-    // Safety checks
-    if (!data || !data._id || !colDef.field) return;
+    if (!data?._id || !colDef.field) return;
 
     try {
       await updateContact(data._id, colDef.field, newValue);
-      console.log(
-        `Updated ${colDef.field} for ${data._id}:`,
-        newValue
-      );
     } catch (error) {
       console.error("Inline update failed:", error);
     }
@@ -55,12 +46,15 @@ function ContactsGrid() {
   return (
     <div className="ag-theme-alpine" style={{ height: 600, width: "100%" }}>
       <AgGridReact
-        theme="legacy"
-        rowData={rowData}
+        theme="legacy"              // ✅ THEME FIX
         columnDefs={contactColumnDefs}
-        pagination={true}
-        paginationPageSize={10}
-        paginationPageSizeSelector={[10, 20, 50, 100]}
+        rowModelType="infinite"
+        cacheBlockSize={pageSize}
+        maxBlocksInCache={5}
+        onGridReady={(params) => {
+          // ✅ v33+ API FIX
+          params.api.setGridOption("datasource", datasource);
+        }}
         onCellValueChanged={onCellValueChanged}
         defaultColDef={{
           sortable: true,

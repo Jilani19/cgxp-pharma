@@ -1,14 +1,15 @@
-// ✅ Environment-based backend URL (ONLY ADDITION)
 const API_URL =
   process.env.NODE_ENV === "production"
     ? "https://cgxp-pharma-api.onrender.com/api/contacts"
     : "http://localhost:5000/api/contacts";
 
 /**
- * Fetch all contacts (client-side pagination)
+ * Fetch contacts (SERVER-SIDE pagination)
  */
-export async function fetchContacts() {
-  const response = await fetch(API_URL);
+export async function fetchContacts({ page = 1, limit = 50 }) {
+  const response = await fetch(
+    `${API_URL}?page=${page}&limit=${limit}`
+  );
 
   if (!response.ok) {
     throw new Error("Failed to fetch contacts");
@@ -23,7 +24,7 @@ export async function fetchContacts() {
 }
 
 /**
- * Update single field or multiple fields (inline edit)
+ * Inline edit update
  */
 export async function updateContact(contactId, field, value) {
   const response = await fetch(`${API_URL}/${contactId}`, {
